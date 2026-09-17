@@ -1,0 +1,53 @@
+# GitHub Action workflow that runs on push to main branch
+# Docker build and push the album-api image to ACR
+
+name: Build and push album-api
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/album-api:${{ github.run_id }} .
+
+      # tag the image with the GitHub run id and push to docker hub
+      - name: Tag image with GitHub run id
+        run: |
+          docker tag ${{ secrets.ACR_LOGIN_SERVER }}/album-api:${{ github.run_id }} ${{ secrets.ACR_LOGIN_SERVER }}/album-api:latest
+
+      - name: Push image to ACR
+        run: |
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/album-api:${{ github.run_id }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/album-api:latest
+
+      # run tests on the album-api image
+      - name: Run tests
+        run: |
+          echo "Add album-api test command here"
+
+      # deploy the album-api image to the dev AKS cluster
+      - name: Deploy to AKS
+        run: |
+          echo "Add AKS deployment command here"
+
+      # find and replace the %%VERSION%% by the GitHub action run id in every appmanifest.yml file
+      - name: Update manifest version
+        run: |
+          find . -name "appmanifest.yml" -exec sed -i "s/%%VERSION%%/${{ github.run_id }}/g" {} +
